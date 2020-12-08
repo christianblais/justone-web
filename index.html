@@ -98,11 +98,23 @@
     }
 
     const WaitingRoom = ({user, game}) => {
-      const [name, setName] = React.useState();
+      const allPlayers = game.users ? Object.keys(game.users).map((key) => game.users[key]) : []
+      const currentPlayer = allPlayers.find((player) => player.uid == user.uid);
 
-      const clickHandler = () => {
+      const [name, setName] = React.useState(currentPlayer ? currentPlayer.name : '');
+      const [ready, setReady] = React.useState(false);
+
+      const joinHandler = () => {
         firebase.database().ref('games/' + game.uid + '/users/' + user.uid).set({
-          name: name
+          uid: user.uid,
+          name: name,
+          ready: false
+        });
+      }
+
+      const toggleReadinessHandler = () => {
+        firebase.database().ref('games/' + game.uid + '/users/' + user.uid).update({
+          ready: !currentPlayer.ready
         });
       }
 
@@ -112,16 +124,26 @@
 
           <div className="row">
             <div className="input-field">
-              <input id="name" placeholder="name" type="text" onChange={ event => { setName(event.target.value) } } />
+              <input id="name" value={ name } placeholder="name" type="text" onChange={ event => { setName(event.target.value) } } />
             </div>
           </div>
 
-          <button onClick={ clickHandler } className="waves-effect waves-light btn">Join</button>
+          <button onClick={ joinHandler } className="waves-effect waves-light btn" disabled={ currentPlayer?.ready || !name?.length }>Join</button>
+          <button onClick={ toggleReadinessHandler } className="waves-effect waves-light btn" disabled={ !currentPlayer }>Ready</button>
 
           {
             <ul>
-              { game.users && Object.keys(game.users).map((key) => <li>{ game.users[key].name }</li> ) }
+              { allPlayers.map((player) => {
+                  return(
+                    <li key={player.uid}>{ player.name } { player.ready && "*" }</li>
+                  )
+                })
+              }
             </ul>
+          }
+
+          {
+            game.owner == currentPlayer?.uid && <button className="waves-effect waves-light btn" disabled={ !allPlayers.every((player) => player.ready) }>Start!</button>
           }
         </>
       )
