@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <title></title>
+
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css">
+
+  <link rel="shortcut icon" href="#" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+</head>
+<body>
+  <div id="app" class="container center"></div>
+
+  <!-- Materialize -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.min.js"></script>
+
+  <!-- React -->
+  <script crossorigin src="https://unpkg.com/react@17/umd/react.development.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@17/umd/react-dom.development.js"></script>
+  <script crossorigin src="https://unpkg.com/react-router-dom@5.2.0/umd/react-router-dom.js"></script>
+  <script crossorigin src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <!-- Firebase -->
+  <script src="https://www.gstatic.com/firebasejs/8.1.2/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.1.2/firebase-auth.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.1.2/firebase-database.js"></script>
+
+  <script>
+    firebase.initializeApp({
+      apiKey: "AIzaSyBElBT0EATGzckFNUZ69M-CKcIq0VynO08",
+      authDomain: "justone-7ffe6.firebaseapp.com",
+      projectId: "justone-7ffe6",
+      storageBucket: "justone-7ffe6.appspot.com",
+      databaseURL: "https://justone-7ffe6-default-rtdb.firebaseio.com/",
+      messagingSenderId: "107210378075",
+      appId: "1:107210378075:web:5ad604222f2ad1d8a2687e"
+    });
+  </script>
+
+  <script type="text/babel">
+    const Link = ReactRouterDOM.Link;
+    const Route = ReactRouterDOM.Route;
+    const Redirect = ReactRouterDOM.Redirect;
+
+    const Home = () => {
+      return(
+        <>
+          <Link to="/host" className="waves-effect waves-light btn">Host</Link>
+          <Link to="/join" className="waves-effect waves-light btn">Join</Link>
+        </>
+      )
+    }
+
+    const Host = () => {
+      return(
+        <Redirect to={ `/game/${ Math.random().toString(36).replace(/[^a-z]+/g, '').substr(0, 4) }` }></Redirect>
+      )
+    }
+
+    const Join = () => {
+      const history = ReactRouterDOM.useHistory();
+
+      let gameID;
+
+      return(
+        <>
+          <div className="row">
+            <div className="input-field">
+              <input id="gameID" placeholder="Game ID" type="text" onChange={ event => { gameID = event.target.value } } />
+            </div>
+          </div>
+
+          <button onClick={ event => { history.push(`/game/${ gameID }`) } } className="waves-effect waves-light btn">Join</button>
+        </>
+      )
+    }
+
+    const Loading = () => {
+      return(
+        <div className="preloader-wrapper big active">
+          <div className="spinner-layer spinner-blue-only">
+            <div className="circle-clipper left">
+              <div className="circle"></div>
+            </div>
+            <div className="gap-patch">
+              <div className="circle"></div>
+            </div>
+            <div className="circle-clipper right">
+              <div className="circle"></div>
+            </div>
+          </div>
+        </div>
+      )
+    }
+
+    const WaitingRoom = ({user, game}) => {
+      const [name, setName] = React.useState();
+
+      const clickHandler = () => {
+        firebase.database().ref('games/' + game.uid + '/users/' + user.uid).set({
+          name: name
+        });
+      }
+
+      return(
+        <>
+          <p>{user.uid}</p>
+
+          <div className="row">
+            <div className="input-field">
+              <input id="name" placeholder="name" type="text" onChange={ event => { setName(event.target.value) } } />
+            </div>
+          </div>
+
+          <button onClick={ clickHandler } className="waves-effect waves-light btn">Join</button>
+
+          {
+            <ul>
+              { game.users && Object.keys(game.users).map((key) => <li>{ game.users[key].name }</li> ) }
+            </ul>
+          }
+        </>
+      )
+    }
+
+    const Lobby = () => {
+      const { gameID } = ReactRouterDOM.useParams();
+
+      const [user, setUser] = React.useState();
+      const [game, setGame] = React.useState();
+
+      React.useEffect(() => {
+        firebase.auth().signInAnonymously().then((data) => {
+          setUser(data.user)
+        })
+      }, []);
+
+      React.useEffect(() => {
+        firebase.database().ref('games/' + gameID).on('value', (gameSnapshot) => {
+          if (gameSnapshot.val()) {
+            setGame(gameSnapshot.val())
+          } else {
+            firebase.database().ref('games/' + gameID).set({
+              uid: gameID,
+              owner: user.uid,
+              users: []
+            });
+          }
+        });
+      }, [user]);
+
+      return(user && game ? <WaitingRoom user={user} game={game} /> : <Loading />)
+    }
+
+    const App = () => {
+      return (
+        <ReactRouterDOM.HashRouter>
+          <ReactRouterDOM.Switch>
+            <Route path="/join" component={ Join } />
+            <Route path="/host" component={ Host } />
+            <Route path="/game/:gameID" component={ Lobby } />
+            <Route path="/" component={ Home } />
+          </ReactRouterDOM.Switch>
+        </ReactRouterDOM.HashRouter>
+      )
+    }
+
+    ReactDOM.render(<App />, document.getElementById('app'));
+  </script>
+</body>
+</html>
